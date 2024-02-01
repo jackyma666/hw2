@@ -5,7 +5,7 @@ toc: true
 title-block-banner: true
 title-block-style: default
 format: html
-# format: pdf
+#format: pdf
 ---
 
 [Link to the Github repository](https://github.com/STAT380/hw2.git)
@@ -28,7 +28,7 @@ For this assignment, we will be using the [Abalone dataset](http://archive.ics.u
 
 We will be using the following libraries:
 
-```R
+```{R}
 library(readr)
 library(tidyr)
 library(ggplot2)
@@ -51,7 +51,7 @@ EDA using `readr`, `tidyr` and `ggplot2`
 
 Load the "Abalone" dataset as a tibble called `abalone` using the URL provided below. The `abalone_col_names` variable contains a vector of the column names for this dataset (to be consistent with the R naming pattern). Make sure you read the dataset with the provided column names. 
 
-```R
+```{R}
 library(readr)
 url <- "http://archive.ics.uci.edu/ml/machine-learning-databases/abalone/abalone.data"
 
@@ -67,7 +67,7 @@ abalone_col_names <- c(
   "rings"
 )
 
-abalone <- ... # Insert your code here
+abalone <- read_delim(url, delim = ",", col_names = abalone_col_names)
 ```
 
 ---
@@ -76,8 +76,10 @@ abalone <- ... # Insert your code here
 
 Remove missing values and `NA`s from the dataset and store the cleaned data in a tibble called `df`. How many rows were dropped?
 
-```R
-df <- ... # Insert your code here
+```{R}
+df <- na.omit(abalone)
+dropped_rows <- nrow(abalone) - nrow(df)
+
 ```
 
 
@@ -89,8 +91,17 @@ df <- ... # Insert your code here
 
 Plot histograms of all the quantitative variables in a **single plot** [^footnote_facet_wrap]
 
-```R
-... # Insert your code here
+```{R}
+df_long <- gather(df, key = "variable", value = "value", -sex) 
+
+gg_histograms <- ggplot(df_long, aes(x = value)) +
+  geom_histogram(bins = 30, fill = "blue", color = "black") + 
+  facet_wrap(~variable, scales = "free") +
+  theme_minimal() + 
+  labs(x = "Value", y = "Frequency", title = "Histograms of Quantitative Variables")
+
+print(gg_histograms)
+
 ```
 
 
@@ -100,13 +111,31 @@ Plot histograms of all the quantitative variables in a **single plot** [^footnot
 
 Create a boxplot of `length` for each `sex` and create a violin-plot of of `diameter` for each `sex`. Are there any notable differences in the physical appearences of abalones based on your analysis here?
 
-```R
-... # Insert your code for boxplot here
+```{R}
+ggplot(df, aes(x = sex, y = length)) +
+  geom_boxplot() +
+  labs(title = "Boxplot of Length for Each Sex",
+       x = "Sex",
+       y = "Length") +
+  theme_minimal()
+
 ```
 
-```R
-... # Insert your code for violinplot here
+```{R}
+ggplot(df, aes(x = sex, y = diameter)) +
+  geom_violin(trim = FALSE) +
+  labs(title = "Violin Plot of Diameter for Each Sex",
+       x = "Sex",
+       y = "Diameter") +
+  theme_minimal()
+
 ```
+The boxplot suggests variation in length across sexes, with males showing slightly higher median and range. The violin plot indicates similar distributions for diameter but with subtle differences in spread and density.
+
+
+
+
+
 
 
 ---
@@ -117,9 +146,19 @@ Create a scatter plot of `length` and `diameter`, and modify the shape and color
 
 
 
-```R
-... # Insert your code here
+```{R}
+ggplot(df, aes(x = length, y = diameter, color = sex, shape = sex, size = shell_weight)) +
+  geom_point(alpha = 0.6) +  
+  scale_shape_manual(values = c(16, 17, 18)) +  
+  labs(title = "Scatter Plot of Length and Diameter",
+       x = "Length",
+       y = "Diameter",
+       size = "Shell Weight") +
+  theme_minimal() +
+  theme(legend.position = "bottom") 
+
 ```
+The scatter plot shows a clear positive correlation between length and diameter. There are no distinct anomalies observed.
 
 ---
 
@@ -128,8 +167,18 @@ Create a scatter plot of `length` and `diameter`, and modify the shape and color
 For each `sex`, create separate scatter plots of `length` and `diameter`. For each plot, also add a **linear** trendline to illustrate the relationship between the variables. Use the `facet_wrap()` function in R for this, and ensure that the plots are vertically stacked **not** horizontally. You should end up with a plot that looks like this: [^footnote_plot_facet]
 
 
-```R
-... # Insert your code here
+```{R}
+
+ggplot(df, aes(x = length, y = diameter)) +
+  geom_point(aes(color = sex)) +  
+  geom_smooth(method = "lm", aes(color = sex), se = FALSE) +  
+  facet_wrap(~sex, scales = "free_y", ncol = 1) +  
+  labs(title = "Scatter Plots of Length and Diameter by Sex",
+       x = "Length",
+       y = "Diameter") +
+  theme_minimal() +
+  theme(legend.position = "bottom")  
+
 ```
 
 
@@ -154,8 +203,22 @@ More advanced analyses using `dplyr`, `purrrr` and `ggplot2`
 Filter the data to only include abalone with a length of at least $0.5$ meters. Group the data by `sex` and calculate the mean of each variable for each group. Create a bar plot to visualize the mean values for each variable by `sex`.
 
 
-```R
-df %>% ... # Insert your code here
+```{R}
+df_filtered <- df %>%
+  filter(length >= 0.5) %>%
+  group_by(sex) %>%
+  summarise(across(everything(), mean, na.rm = TRUE))
+
+df_long <- pivot_longer(df_filtered, -sex, names_to = "variable", values_to = "mean_value")
+
+ggplot(df_long, aes(x = variable, y = mean_value, fill = sex)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(title = "Mean Values of Variables by Sex",
+       x = "Variable",
+       y = "Mean Value") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) 
+
 ```
 
 
@@ -176,8 +239,22 @@ Implement the following in a **single command**:
 3. Use the `geom_tile()` function to create a tile plot of `num_rings` vs `sex` with the color indicating of each tile indicating the `avg_weight` value. 
 
 
-```R
-df %>% ... # Insert your code here
+```{R}
+df %>%
+  mutate(num_rings = case_when(
+    rings < 10 ~ "low",
+    rings > 20 ~ "high",
+    TRUE ~ "med"
+  )) %>%
+  group_by(num_rings, sex) %>%
+  summarise(avg_weight = mean(whole_weight + shucked_weight + viscera_weight + shell_weight, na.rm = TRUE)) %>%
+  
+  ggplot(aes(x = num_rings, y = sex, fill = avg_weight)) +
+    geom_tile() +
+    scale_fill_gradient(low = "blue", high = "red") +
+    labs(title = "Tile plot of num_rings vs sex", x = "Number of Rings", y = "Sex", fill = "Average Weight") +
+    theme_minimal()
+
 ```
 
 
@@ -189,8 +266,12 @@ df %>% ... # Insert your code here
 Make a table of the pairwise correlations between all the numeric variables rounded to 2 decimal points. Your final answer should look like this [^footnote_table]
 
 
-```R
-df %>% ... # Insert your code here
+```{R}
+numeric_df <- df %>% select_if(is.numeric)  
+cor_matrix <- cor(numeric_df, use = "complete.obs")  
+cor_matrix_rounded <- round(cor_matrix, 2)
+cor_matrix_rounded
+
 ```
 
 
@@ -206,8 +287,19 @@ Use the `map2()` function from the `purrr` package to create a scatter plot for 
 :::
 
 
-```R
-... # Insert your code here
+```{R}
+plot_function <- function(variable, data) {
+  ggplot(data, aes_string(x = "rings", y = variable, color = "sex")) +
+    geom_point() +
+    labs(y = variable, x = "Rings")
+}
+
+quantitative_variables <- names(df)[sapply(df, is.numeric)]
+
+plots <- map(quantitative_variables, ~plot_function(.x, df))
+
+plot_grid(plotlist = plots, align = 'v')
+
 ```
 
 
@@ -230,8 +322,9 @@ Linear regression using `lm`
 Perform a simple linear regression with `diameter` as the covariate and `height` as the response. Interpret the model coefficients and their significance values. 
 
 
-```R
-... # Insert your code here
+```{R}
+model <- lm(height ~ diameter, data = df)
+summary(model)
 ```
 
 
@@ -243,8 +336,12 @@ Perform a simple linear regression with `diameter` as the covariate and `height`
 Make a scatterplot of `height` vs `diameter` and plot the regression line in `color="red"`. You can use the base `plot()` function in R for this. Is the linear model an appropriate fit for this relationship? Explain. 
 
 
-```R
-... # Insert your code here
+```{R}
+plot(df$diameter, df$height, main = "Scatterplot of Height vs Diameter",
+     xlab = "Diameter", ylab = "Height", pch = 19, col = "blue")
+
+abline(model, col = "red")
+
 ```
 
 
@@ -255,7 +352,7 @@ Make a scatterplot of `height` vs `diameter` and plot the regression line in `co
 
 Suppose we have collected observations for "new" abalones with `new_diameter` values given below. What is the expected value of their `height` based on your model above? Plot these new observations along with your predictions in your plot from earlier using `color="violet"`
 
-```R
+```{R}
 
 new_diameters <- c(
   0.15218946,
@@ -271,55 +368,13 @@ new_diameters <- c(
 )
 
 
-... # Insert your code here. 
-```
+predicted_heights <- predict(model, newdata = data.frame(diameter = new_diameters))
 
+plot(df$diameter, df$height, main = "Scatterplot of Height vs Diameter with Predictions",
+     xlab = "Diameter", ylab = "Height", pch = 19, col = "blue")
 
+abline(model, col = "red")
 
+points(new_diameters, predicted_heights, col = "violet", pch = 19)
 
-
-:::{.hidden unless-format="pdf"}
-\pagebreak
-:::
-
-<br><br><br><br>
-<br><br><br><br>
----
-
-
-# Appendix
-
-::: {.callout-note collapse="true"}
-## Session Information
-
-Print your `R` session information using the following command
-
-```{R}
-sessionInfo()
-```
-:::
-
-[^footnote_facet_wrap]:
-  You can use the `facet_wrap()` function for this. Have a look at its documentation using the help console in R
-
-[^footnote_plot_facet]:
-  Plot example for 1.6<br>
-  [![](images/lines.png){style="height: 5em;"}]{.content-visible when-format="html"}
-
-[^footnote_table]:
-  Table for 2.3<br>
-
-:::{.content-visible when-format="html"}
-
-| length| diameter| height| whole_weight| shucked_weight| viscera_weight| shell_weight| rings|
-|:--------------|------:|--------:|------:|------------:|--------------:|--------------:|------------:|-----:|
-|length         |   1.00|     0.99|   0.83|         0.93|           0.90|           0.90|         0.90|  0.56|
-|diameter       |   0.99|     1.00|   0.83|         0.93|           0.89|           0.90|         0.91|  0.57|
-|height         |   0.83|     0.83|   1.00|         0.82|           0.77|           0.80|         0.82|  0.56|
-|whole_weight   |   0.93|     0.93|   0.82|         1.00|           0.97|           0.97|         0.96|  0.54|
-|shucked_weight |   0.90|     0.89|   0.77|         0.97|           1.00|           0.93|         0.88|  0.42|
-|viscera_weight |   0.90|     0.90|   0.80|         0.97|           0.93|           1.00|         0.91|  0.50|
-|shell_weight   |   0.90|     0.91|   0.82|         0.96|           0.88|           0.91|         1.00|  0.63|
-|rings          |   0.56|     0.57|   0.56|         0.54|           0.42|           0.50|         0.63|  1.00|
-
-:::
+legend("topleft", legend = c("Original Data", "Regression Line
